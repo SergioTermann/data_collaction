@@ -1,98 +1,84 @@
 import os
-from zai import ZhipuAiClient
+import zhipuai
 from dotenv import load_dotenv
 
 class ZhipuAI:
     def __init__(self, api_key=None):
         """
-        初始化智谱AI客户端
+        Initialize ZhipuAI client
         
         Args:
-            api_key: 智谱AI的API密钥，如果为None则从环境变量获取
+            api_key: ZhipuAI API key, if None, get from environment variable
         """
-        # 加载环境变量
+        # Load environment variables
         load_dotenv()
         
-        # 获取API密钥
+        # Get API key
         self.api_key = api_key or os.getenv("ZHIPU_API_KEY")
         if not self.api_key:
-            raise ValueError("未提供API密钥，请设置环境变量ZHIPU_API_KEY或在初始化时提供")
+            raise ValueError("API key not provided, please set ZHIPU_API_KEY environment variable or provide it during initialization")
         
-        # 初始化客户端
-        self.client = ZhipuAiClient(api_key=self.api_key)
+        # Initialize client
+        self.client = zhipuai.ZhipuAI(api_key=self.api_key)
     
     def summarize_text(self, text, max_tokens=2000):
         """
-        使用智谱AI总结文本内容
+        Summarize text using ZhipuAI
         
         Args:
-            text: 需要总结的文本
-            max_tokens: 输入文本的最大token数，默认2000
-        
+            text: Text to summarize
+            max_tokens: Maximum tokens for the response
+            
         Returns:
-            str: 总结后的内容
+            Summary of the text
         """
-        # 如果文本过长，截取一部分
-        if len(text) > max_tokens * 4:  # 粗略估计每个token约4个字符
+        # Truncate text if too long
+        if len(text) > max_tokens * 4:  # Rough estimate of 4 chars per token
             text = text[:max_tokens * 4]
-            text += "\n[文本过长，已截断]"
+            text += "\n[Text truncated due to length]"
         
         try:
-            # 创建聊天完成请求
             response = self.client.chat.completions.create(
-                model="glm-4.6",
+                model="chatglm_turbo",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的文档分析助手，擅长提取和总结文档中的关键知识点。请提取以下文本中的主要知识点，并按照重要性组织成结构化的总结。"
-                    },
-                    {
-                        "role": "user",
-                        "content": f"请总结以下PDF文档的主要内容，提取关键知识点，并按照重要性组织成结构化的总结：\n\n{text}"
-                    }
+                    {"role": "system", "content": "You are a professional document analysis assistant, skilled at extracting and summarizing key knowledge points from documents."}, 
+                    {"role": "user", "content": f"Please summarize the following document content, extract key points, and organize them into a structured summary:\n\n{text}"}
                 ],
-                temperature=0.3  # 使用较低的温度以获得更确定性的回答
+                top_p=0.7,
+                temperature=0.3
             )
-            
-            # 获取回复
             return response.choices[0].message.content
         except Exception as e:
-            raise Exception(f"调用智谱AI接口时出错: {str(e)}")
+            print(f"Error in summarize_text: {e}")
+            return f"Error: {str(e)}"
     
     def extract_key_concepts(self, text, max_tokens=2000):
         """
-        使用智谱AI提取文本中的关键概念
+        Extract key concepts from text using ZhipuAI
         
         Args:
-            text: 需要分析的文本
-            max_tokens: 输入文本的最大token数，默认2000
-        
+            text: Text to extract key concepts from
+            max_tokens: Maximum tokens for the response
+            
         Returns:
-            str: 提取的关键概念
+            Key concepts extracted from the text
         """
-        # 如果文本过长，截取一部分
+        # Truncate text if too long
         if len(text) > max_tokens * 4:
             text = text[:max_tokens * 4]
-            text += "\n[文本过长，已截断]"
+            text += "\n[Text truncated due to length]"
         
         try:
-            # 创建聊天完成请求
             response = self.client.chat.completions.create(
-                model="glm-4.6",
+                model="chatglm_turbo",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的知识提取助手，擅长从文本中提取关键概念和术语。请从以下文本中提取关键概念，并简要解释每个概念。"
-                    },
-                    {
-                        "role": "user",
-                        "content": f"请从以下PDF文档中提取10-15个关键概念或术语，并为每个概念提供简短的解释：\n\n{text}"
-                    }
+                    {"role": "system", "content": "You are a professional knowledge extraction assistant, skilled at extracting key concepts and terms from text."}, 
+                    {"role": "user", "content": f"Please extract 10-15 key concepts or terms from the following document, and provide a brief explanation for each concept:\n\n{text}"}
                 ],
+                top_p=0.7,
                 temperature=0.3
             )
-            
-            # 获取回复
             return response.choices[0].message.content
         except Exception as e:
-            raise Exception(f"调用智谱AI接口时出错: {str(e)}")
+            print(f"Error in extract_key_concepts: {e}")
+            return f"Error: {str(e)}"

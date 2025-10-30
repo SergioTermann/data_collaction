@@ -1,69 +1,84 @@
-# PDF知识总结工具
+# PDF Knowledge Summarizer
 
-这是一个使用智谱AI来读取PDF文件并总结其中主要知识点的工具。
+A tool that uses ZhipuAI to read PDF files and summarize their key knowledge points.
 
-## 功能特点
+## Features
 
-- 读取PDF文件内容
-- 使用智谱AI的GLM-4.6模型总结文档内容
-- 提取文档中的关键概念
-- 支持命令行操作
+- Read PDF file content
+- Summarize document content using ZhipuAI's GLM-4.6 model
+- Extract key concepts from documents
+- Support for command line operation
+- Modern graphical user interface
 
-## 安装
+## Installation
 
-1. 克隆或下载本项目
-2. 安装依赖包：
+1. Clone or download this project
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. 复制`.env.example`文件为`.env`并填入您的智谱AI API密钥：
+3. Copy the `.env.example` file to `.env` and add your ZhipuAI API key:
 
 ```bash
 cp .env.example .env
 ```
 
-然后编辑`.env`文件，设置您的API密钥：
+Then edit the `.env` file and set your API key:
 
 ```
-ZHIPU_API_KEY=您的智谱AI_API密钥
+ZHIPU_API_KEY=your_zhipu_ai_api_key
 ```
 
-## 使用方法
+## Usage
 
-### 命令行使用
+### Command Line Usage
 
 ```bash
-python main.py 您的PDF文件路径 [--api-key API密钥] [--output 输出文件路径]
+python main.py your_pdf_file_path [--api-key API_KEY] [--output output_file_path]
 ```
 
-参数说明：
-- `pdf_path`：必需，PDF文件的路径
-- `--api-key`, `-k`：可选，智谱AI的API密钥，如不提供则从环境变量获取
-- `--output`, `-o`：可选，输出文件路径，如不提供则输出到控制台
+Parameters:
+- `pdf_path`: Required, path to the PDF file
+- `--api-key`, `-k`: Optional, ZhipuAI API key, if not provided it will be retrieved from environment variables
+- `--output`, `-o`: Optional, output file path, if not provided output will be sent to console
 
-### 示例
+### Examples
 
 ```bash
-# 输出到控制台
+# Output to console
 python main.py document.pdf
 
-# 指定API密钥并输出到文件
+# Specify API key and output to file
 python main.py document.pdf --api-key YOUR_API_KEY --output summary.md
 ```
 
-## 项目结构
+### Graphical Interface
 
-- `main.py`：主程序入口
-- `pdf_reader.py`：PDF文件读取模块
-- `zhipu_ai.py`：智谱AI接口调用模块
-- `pdf_summarizer.py`：PDF总结功能模块
-- `requirements.txt`：项目依赖
-- `.env.example`：环境变量示例文件
+You can also run the application with a graphical interface by simply running:
 
-## 注意事项
+```bash
+python main.py
+```
 
-- 智谱AI API有调用限制，请注意控制使用频率
-- 对于大型PDF文件，程序会自动截取部分内容进行处理
-- 处理结果的质量取决于PDF文本的提取质量和智谱AI模型的能力
+or
+
+```bash
+python main.py --gui
+```
+
+## Project Structure
+
+- `main.py`: Main program entry
+- `pdf_reader.py`: PDF file reading module
+- `zhipu_ai.py`: ZhipuAI API interface module
+- `pdf_summarizer.py`: PDF summarization functionality module
+- `requirements.txt`: Project dependencies
+- `.env.example`: Example environment variable file
+
+## Notes
+
+- ZhipuAI API has usage limits, please be mindful of usage frequency
+- For large PDF files, the program will automatically truncate content for processing
+- The quality of results depends on the quality of PDF text extraction and the capabilities of the ZhipuAI model
