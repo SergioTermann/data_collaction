@@ -1,0 +1,3 @@
+zai
+PyPDF2
+python-dotenv
