@@ -39,12 +39,12 @@ class ZhipuAI:
             text += "\n[文本因长度过长而被截断]"
         
         try:
-            system_prompt = "你是一位专业的文档分析助手，擅长从文档中提取和总结关键知识点。请只使用中文回答。"
+            system_prompt = "你是一位专业的文档分析助手，擅长从文档中提取和总结关键知识点。请只使用中文回答。直接给出内容，不要添加任何前缀如'好的'、'这是'等。"
             
             if as_questions:
-                user_prompt = f"请总结以下文档内容。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的内容，请使用正常的描述性格式。将所有内容组织成结构清晰的总结，并分为明确的部分。请确保所有输出都是中文，不要使用任何英文：\n\n{text}"
+                user_prompt = f"请总结以下文档内容。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的内容，请使用正常的描述性格式。将所有内容组织成结构清晰的总结，并分为明确的部分。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
             else:
-                user_prompt = f"请总结以下文档内容，提取关键点，并将它们组织成结构化的总结。请确保所有输出都是中文，不要使用任何英文：\n\n{text}"
+                user_prompt = f"请总结以下文档内容，提取关键点，并将它们组织成结构化的总结。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
             
             response = self.client.chat.completions.create(
                 model="glm-4.6",
@@ -55,7 +55,19 @@ class ZhipuAI:
                 top_p=0.7,
                 temperature=0.3
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            
+            # 去除常见的回复前缀
+            prefixes = [
+                "好的，", "这是", "以下是", "下面是", "这里是", 
+                "好的。", "这是对", "以下是对", "下面是对", "这里是对"
+            ]
+            
+            for prefix in prefixes:
+                if content.startswith(prefix):
+                    content = content[len(prefix):].lstrip()
+            
+            return content
         except Exception as e:
             print(f"总结文本时出错: {e}")
             return f"错误: {str(e)}"
@@ -78,12 +90,12 @@ class ZhipuAI:
             text += "\n[文本因长度过长而被截断]"
         
         try:
-            system_prompt = "你是一位专业的知识提取助手，擅长从文本中提取关键概念和术语。请只使用中文回答。"
+            system_prompt = "你是一位专业的知识提取助手，擅长从文本中提取关键概念和术语。请只使用中文回答。直接给出内容，不要添加任何前缀如'好的'、'这是'等。"
             
             if as_questions:
-                user_prompt = f"请从以下文档中提取10-15个关键概念或术语。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的概念，请使用正常的描述性格式。为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文：\n\n{text}"
+                user_prompt = f"请从以下文档中提取10-15个关键概念或术语。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的概念，请使用正常的描述性格式。为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
             else:
-                user_prompt = f"请从以下文档中提取10-15个关键概念或术语，并为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文：\n\n{text}"
+                user_prompt = f"请从以下文档中提取10-15个关键概念或术语，并为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
             
             response = self.client.chat.completions.create(
                 model="glm-4.6",
@@ -94,7 +106,19 @@ class ZhipuAI:
                 top_p=0.7,
                 temperature=0.3
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            
+            # 去除常见的回复前缀
+            prefixes = [
+                "好的，", "这是", "以下是", "下面是", "这里是", 
+                "好的。", "这是对", "以下是对", "下面是对", "这里是对"
+            ]
+            
+            for prefix in prefixes:
+                if content.startswith(prefix):
+                    content = content[len(prefix):].lstrip()
+            
+            return content
         except Exception as e:
             print(f"提取关键概念时出错: {e}")
             return f"错误: {str(e)}"

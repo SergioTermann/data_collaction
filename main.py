@@ -30,30 +30,9 @@ def process_pdf(pdf_path, api_key=None, as_questions=True):
         # Get filename without extension for title
         filename = os.path.basename(pdf_path)
         title = os.path.splitext(filename)[0]
-        title_slug = title.lower().replace(' ', '_')
-        current_year = datetime.datetime.now().strftime('%Y')
-        page_count = result['page_count']
         
-        # Create citation template separately
-        citation = f"@article{{{title_slug},\n  title={{{title}}},\n  author={{}},\n  pages={{{page_count}}},\n  year={{{current_year}}}\n}}"
-        
-        # Format output content in knowledge base friendly format
-        output_content = f"""---
-title: {title}
-description: 自动生成的PDF文档摘要和关键概念
-date: {datetime.datetime.now().strftime('%Y-%m-%d')}
-tags:
-  - 文档摘要
-  - PDF
-  - 知识库
----
-
-# {title}
-
-> [!info] 文件信息
-> - **原始文件**: {filename}
-> - **页数**: {result['page_count']}
-> - **分析时间**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        # Format output content in simplified format
+        output_content = f"""# {title}
 
 ## 内容摘要
 
@@ -62,19 +41,13 @@ tags:
 ## 关键概念
 
 {result['key_concepts']}
-
-## 引用方式
-
-```
-{citation}
-```
 """
         return output_content
     except Exception as e:
         raise Exception(f"Error processing PDF: {str(e)}")
 
 
-def process_folder(folder_path, api_key=None, as_questions=True):
+def process_folder(folder_path, api_key=None, as_questions=True, progress_callback=None):
     """
     处理文件夹中的所有PDF文件，并在同一文件夹中生成同名的Markdown文件
     
@@ -82,17 +55,28 @@ def process_folder(folder_path, api_key=None, as_questions=True):
         folder_path: 文件夹路径
         api_key: ZhipuAI的API密钥
         as_questions: 如果为True，尽可能将摘要和概念格式化为问题
+        progress_callback: 进度回调函数，接收当前处理的文件索引和总文件数
     """
     processed_files = []
     errors = []
+    
+    # 检查文件夹是否存在
+    if not os.path.isdir(folder_path):
+        raise ValueError(f"文件夹路径不存在: {folder_path}")
     
     # 获取文件夹中的所有PDF文件
     pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
     
     if not pdf_files:
-        raise Exception(f"在文件夹 {folder_path} 中未找到PDF文件")
+        return {"processed_files": [], "errors": [], "total_processed": 0, "total_errors": 0}
     
-    for pdf_file in pdf_files:
+    total_files = len(pdf_files)
+    
+    for i, pdf_file in enumerate(pdf_files):
+        # 更新进度
+        if progress_callback:
+            progress_callback(i+1, total_files)
+            
         pdf_path = os.path.join(folder_path, pdf_file)
         try:
             # 处理PDF文件
@@ -107,10 +91,25 @@ def process_folder(folder_path, api_key=None, as_questions=True):
                 f.write(content)
             
             processed_files.append(output_path)
+            print(f"成功处理: {pdf_file} -> {base_name}.md")
             
         except Exception as e:
             errors.append(f"{pdf_file}: {str(e)}")
+            print(f"处理失败: {pdf_file} - {str(e)}")
     
+    # 完成所有处理后，更新进度为100%
+    if progress_callback:
+        progress_callback(total_files, total_files)
+        
+    return {
+        "processed_files": processed_files,
+        "errors": errors,
+        "total_processed": len(processed_files),
+        "total_errors": len(errors)
+    }
+    if progress_callback:
+        progress_callback(total_files, total_files)
+        
     return {
         "processed_files": processed_files,
         "errors": errors,
@@ -338,17 +337,28 @@ def gui_mode():
         # 显示处理消息
         status_label.config(text="正在处理文件夹中的PDF文件，请稍候...")
         progress_bar.pack(pady=15)
-        progress_bar.start(10)
+        progress_bar.config(mode='determinate', maximum=100, value=0)
+        file_progress_label.config(text="准备处理文件...")
+        file_progress_label.pack(pady=5)
         root.update()
+        
+        # 定义进度回调函数
+        def update_progress(current, total):
+            if total > 0:
+                progress_value = int((current / total) * 100)
+                progress_bar.config(value=progress_value)
+                file_progress_label.config(text=f"正在处理: {current}/{total} 文件 ({progress_value}%)")
+                root.update()
         
         try:
             # 处理文件夹
             api_key = os.getenv("ZHIPUAI_API_KEY")
-            result = process_folder(folder_path, api_key, as_questions=True)
+            result = process_folder(folder_path, api_key, as_questions=True, progress_callback=update_progress)
             
             # 停止进度条
-            progress_bar.stop()
-            progress_bar.pack_forget()
+            progress_bar.config(value=100)
+            file_progress_label.config(text=f"处理完成: {result['total_processed']}/{result['total_processed'] + result['total_errors']} 文件成功")
+            root.update()
             
             if result["total_processed"] > 0:
                 status_label.config(text=f"处理完成！成功处理 {result['total_processed']} 个文件，失败 {result['total_errors']} 个")
@@ -359,18 +369,16 @@ def gui_mode():
             else:
                 status_label.config(text="未处理任何文件")
                 messagebox.showinfo("处理完成", "未处理任何文件")
-        except Exception as e:
-            progress_bar.stop()
+                
+            # 隐藏进度条和标签
             progress_bar.pack_forget()
+            file_progress_label.pack_forget()
+            
+        except Exception as e:
+            progress_bar.pack_forget()
+            file_progress_label.pack_forget()
             status_label.config(text=f"处理出错: {str(e)}")
             messagebox.showerror("处理错误", str(e))
-            content = process_pdf(pdf_path, api_key)
-            
-            # Save results
-            output_path = save_to_markdown(content, pdf_path)
-            
-            progress_bar.stop()
-            progress_bar.pack_forget()
             
             if output_path:
                 status_label.config(text=f"分析完成！结果已保存至: {os.path.basename(output_path)}")
@@ -442,6 +450,15 @@ def gui_mode():
     # Create progress bar with custom style (hidden by default)
     style.configure("TProgressbar", thickness=8, troughcolor="#e2e8f0", background=accent_color)
     progress_bar = ttk.Progressbar(status_frame, style="TProgressbar", mode='indeterminate', length=500)
+    
+    # Create file progress label
+    file_progress_label = tk.Label(
+        status_frame, 
+        text="",
+        font=("Microsoft YaHei", 10),
+        bg=card_bg,
+        fg=text_color
+    )
     
     # Create status label
     status_label = tk.Label(
