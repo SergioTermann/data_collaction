@@ -10,9 +10,14 @@ import time
 import datetime
 
 
-def process_pdf(pdf_path, api_key=None):
+def process_pdf(pdf_path, api_key=None, as_questions=True):
     """
-    Process PDF file and return results
+    Process PDF file and return results in knowledge base friendly markdown format
+    
+    Args:
+        pdf_path: Path to PDF file
+        api_key: API key for ZhipuAI
+        as_questions: If True, format summary and concepts as questions when possible
     """
     try:
         # Initialize PDF summarizer
@@ -20,42 +25,112 @@ def process_pdf(pdf_path, api_key=None):
         
         # Summarize PDF content
         print(f"Processing PDF file: {pdf_path}")
-        result = summarizer.summarize_pdf(pdf_path)
+        result = summarizer.summarize_pdf(pdf_path, as_questions=as_questions)
         
-        # Format output content
-        output_content = f"""
-# PDF Document Summary
+        # Get filename without extension for title
+        filename = os.path.basename(pdf_path)
+        title = os.path.splitext(filename)[0]
+        title_slug = title.lower().replace(' ', '_')
+        current_year = datetime.datetime.now().strftime('%Y')
+        page_count = result['page_count']
+        
+        # Create citation template separately
+        citation = f"@article{{{title_slug},\n  title={{{title}}},\n  author={{}},\n  pages={{{page_count}}},\n  year={{{current_year}}}\n}}"
+        
+        # Format output content in knowledge base friendly format
+        output_content = f"""---
+title: {title}
+description: 自动生成的PDF文档摘要和关键概念
+date: {datetime.datetime.now().strftime('%Y-%m-%d')}
+tags:
+  - 文档摘要
+  - PDF
+  - 知识库
+---
 
-## File Information
-- File: {os.path.basename(pdf_path)}
-- Pages: {result['page_count']}
-- Analysis Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+# {title}
 
-## Content Summary
+> [!info] 文件信息
+> - **原始文件**: {filename}
+> - **页数**: {result['page_count']}
+> - **分析时间**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## 内容摘要
+
 {result['summary']}
 
-## Key Concepts
+## 关键概念
+
 {result['key_concepts']}
+
+## 引用方式
+
+```
+{citation}
+```
 """
         return output_content
     except Exception as e:
         raise Exception(f"Error processing PDF: {str(e)}")
 
 
+def process_folder(folder_path, api_key=None, as_questions=True):
+    """
+    处理文件夹中的所有PDF文件，并在同一文件夹中生成同名的Markdown文件
+    
+    Args:
+        folder_path: 文件夹路径
+        api_key: ZhipuAI的API密钥
+        as_questions: 如果为True，尽可能将摘要和概念格式化为问题
+    """
+    processed_files = []
+    errors = []
+    
+    # 获取文件夹中的所有PDF文件
+    pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+    
+    if not pdf_files:
+        raise Exception(f"在文件夹 {folder_path} 中未找到PDF文件")
+    
+    for pdf_file in pdf_files:
+        pdf_path = os.path.join(folder_path, pdf_file)
+        try:
+            # 处理PDF文件
+            content = process_pdf(pdf_path, api_key, as_questions)
+            
+            # 生成输出文件名（与原PDF文件同名，但扩展名为.md）
+            base_name = os.path.splitext(pdf_file)[0]
+            output_path = os.path.join(folder_path, f"{base_name}.md")
+            
+            # 保存内容到文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            processed_files.append(output_path)
+            
+        except Exception as e:
+            errors.append(f"{pdf_file}: {str(e)}")
+    
+    return {
+        "processed_files": processed_files,
+        "errors": errors,
+        "total_processed": len(processed_files),
+        "total_errors": len(errors)
+    }
 def save_to_markdown(content, pdf_path):
     """
-    Save content to Markdown file
+    Save content to Markdown file optimized for knowledge base
     """
     # Generate default output filename (based on original PDF filename)
     base_name = os.path.splitext(os.path.basename(pdf_path))[0]
-    default_output = f"{base_name}_summary.md"
+    default_output = f"{base_name}.md"
     
     # Open save file dialog
     output_path = filedialog.asksaveasfilename(
         defaultextension=".md",
         filetypes=[("Markdown Files", "*.md")],
         initialfile=default_output,
-        title="Save Analysis Results"
+        title="保存知识库文档"
     )
     
     # If user cancels the save dialog, return None
@@ -78,36 +153,36 @@ def gui_mode():
     
     # Create main window
     root = tk.Tk()
-    root.title("PDF Knowledge Summarizer")
-    root.geometry("700x600")
-    root.minsize(650, 550)
+    root.title("PDF知识提取器 - 北京风起时域科技有限公司")
+    root.geometry("800x650")
+    root.minsize(700, 600)
     
     # Set window style with a modern look
     style = ttk.Style()
     style.theme_use('clam')  # Use a modern theme
     
     # Configure colors
-    bg_color = "#f0f6fc"
-    accent_color = "#2563eb"
-    secondary_color = "#10b981"
+    bg_color = "#f5f9ff"
+    accent_color = "#1e40af"
+    secondary_color = "#059669"
     text_color = "#1e293b"
     card_bg = "#ffffff"
     
     root.configure(bg=bg_color)
     
     # Create header frame with gradient effect
-    header_frame = tk.Frame(root, height=90, bg=accent_color)
+    header_frame = tk.Frame(root, height=100, bg=accent_color)
     header_frame.pack(fill=tk.X)
     
     # Create logo and title frame
     logo_title_frame = tk.Frame(header_frame, bg=accent_color)
-    logo_title_frame.pack(pady=10)
+    logo_title_frame.pack(pady=15)
     
     # Load and display logo
     try:
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "商标.jfif")
         logo_image = Image.open(logo_path)
-        logo_image = logo_image.resize((60, 60), Image.LANCZOS)
+        logo_image = logo_image.resize((70, 70), Image.LANCZOS)
         logo_photo = ImageTk.PhotoImage(logo_image)
         
         logo_label = tk.Label(logo_title_frame, image=logo_photo, bg=accent_color)
@@ -116,15 +191,27 @@ def gui_mode():
     except Exception as e:
         print(f"Error loading logo: {e}")
     
-    # Create title label
+    # Create title and company name
+    title_frame = tk.Frame(logo_title_frame, bg=accent_color)
+    title_frame.pack(side=tk.LEFT, padx=15)
+    
     title_label = tk.Label(
-        logo_title_frame, 
-        text="PDF Knowledge Summarizer", 
-        font=("Helvetica", 24, "bold"),
+        title_frame, 
+        text="PDF知识提取器", 
+        font=("Microsoft YaHei", 26, "bold"),
         bg=accent_color,
         fg="white",
     )
-    title_label.pack(side=tk.LEFT, padx=15)
+    title_label.pack(anchor="w")
+    
+    company_label = tk.Label(
+        title_frame, 
+        text="北京风起时域科技有限公司", 
+        font=("Microsoft YaHei", 12),
+        bg=accent_color,
+        fg="white",
+    )
+    company_label.pack(anchor="w", pady=(2, 0))
     
     # Create main content area with card-like appearance
     main_frame = tk.Frame(root, bg=bg_color)
@@ -152,7 +239,7 @@ def gui_mode():
     info_icon_label = tk.Label(
         info_frame,
         text=info_icon,
-        font=("Helvetica", 16),
+        font=("Microsoft YaHei", 16),
         bg=card_bg,
         fg=accent_color
     )
@@ -160,12 +247,12 @@ def gui_mode():
     
     info_label = tk.Label(
         info_frame, 
-        text="Analyze PDF documents and extract key knowledge points using ZhipuAI",
-        font=("Helvetica", 12),
+        text="使用智谱AI分析PDF文档并提取关键知识点",
+        font=("Microsoft YaHei", 12),
         bg=card_bg,
         fg=text_color,
         justify=tk.LEFT,
-        wraplength=500
+        wraplength=550
     )
     info_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
     
@@ -178,24 +265,30 @@ def gui_mode():
     button_frame.pack(pady=20)
     
     # Create select file button with hover effect
-    def on_enter(e):
-        select_button['background'] = '#0ea875'
+    def on_enter_file(e):
+        select_file_button['background'] = '#047857'
         
-    def on_leave(e):
-        select_button['background'] = secondary_color
+    def on_leave_file(e):
+        select_file_button['background'] = secondary_color
+        
+    def on_enter_folder(e):
+        select_folder_button['background'] = '#1d4ed8'
+        
+    def on_leave_folder(e):
+        select_folder_button['background'] = accent_color
     
     def on_enter_exit(e):
-        exit_button['background'] = '#e05252'
+        exit_button['background'] = '#b91c1c'
         
     def on_leave_exit(e):
-        exit_button['background'] = '#e74c3c'
+        exit_button['background'] = '#dc2626'
     
-    # Create select file button
+    # 选择并处理单个PDF文件
     def select_and_process_pdf():
         # Open file selection dialog
         pdf_path = filedialog.askopenfilename(
-            title="Select PDF File",
-            filetypes=[("PDF Files", "*.pdf")]
+            title="选择PDF文件",
+            filetypes=[("PDF文件", "*.pdf")]
         )
         
         # If user cancels file selection, return
@@ -203,14 +296,74 @@ def gui_mode():
             return
         
         # Show processing message
-        status_label.config(text="Processing PDF file, please wait...")
+        status_label.config(text="正在处理PDF文件，请稍候...")
         progress_bar.pack(pady=15)
         progress_bar.start(10)
         root.update()
         
         try:
             # Process PDF file
-            api_key = "d2811fc4f03f48f2bb547d6a6b3378f4.GtaNMZOyqulNGa1L"
+            api_key = os.getenv("ZHIPUAI_API_KEY")
+            content = process_pdf(pdf_path, api_key, as_questions=True)
+            
+            # Save to markdown file
+            output_path = save_to_markdown(content, pdf_path)
+            
+            # Stop progress bar
+            progress_bar.stop()
+            progress_bar.pack_forget()
+            
+            if output_path:
+                status_label.config(text=f"分析完成！结果已保存至: {os.path.basename(output_path)}")
+                messagebox.showinfo("处理完成", f"PDF分析结果已保存至:\n{output_path}")
+            else:
+                status_label.config(text="分析完成，但结果未保存")
+        except Exception as e:
+            progress_bar.stop()
+            progress_bar.pack_forget()
+            status_label.config(text=f"处理出错: {str(e)}")
+            messagebox.showerror("处理错误", str(e))
+            
+    # 选择并处理整个文件夹的PDF文件
+    def select_and_process_folder():
+        # 打开文件夹选择对话框
+        folder_path = filedialog.askdirectory(
+            title="选择包含PDF文件的文件夹"
+        )
+        
+        # 如果用户取消选择，返回
+        if not folder_path:
+            return
+        
+        # 显示处理消息
+        status_label.config(text="正在处理文件夹中的PDF文件，请稍候...")
+        progress_bar.pack(pady=15)
+        progress_bar.start(10)
+        root.update()
+        
+        try:
+            # 处理文件夹
+            api_key = os.getenv("ZHIPUAI_API_KEY")
+            result = process_folder(folder_path, api_key, as_questions=True)
+            
+            # 停止进度条
+            progress_bar.stop()
+            progress_bar.pack_forget()
+            
+            if result["total_processed"] > 0:
+                status_label.config(text=f"处理完成！成功处理 {result['total_processed']} 个文件，失败 {result['total_errors']} 个")
+                messagebox.showinfo("处理完成", 
+                                   f"成功处理 {result['total_processed']} 个PDF文件\n"
+                                   f"失败 {result['total_errors']} 个\n\n"
+                                   f"所有Markdown文件已保存在同一文件夹中")
+            else:
+                status_label.config(text="未处理任何文件")
+                messagebox.showinfo("处理完成", "未处理任何文件")
+        except Exception as e:
+            progress_bar.stop()
+            progress_bar.pack_forget()
+            status_label.config(text=f"处理出错: {str(e)}")
+            messagebox.showerror("处理错误", str(e))
             content = process_pdf(pdf_path, api_key)
             
             # Save results
@@ -220,43 +373,60 @@ def gui_mode():
             progress_bar.pack_forget()
             
             if output_path:
-                status_label.config(text=f"Analysis complete! Results saved to: {os.path.basename(output_path)}")
-                messagebox.showinfo("Processing Complete", f"PDF analysis results saved to:\n{output_path}")
+                status_label.config(text=f"分析完成！结果已保存至: {os.path.basename(output_path)}")
+                messagebox.showinfo("处理完成", f"PDF分析结果已保存至:\n{output_path}")
             else:
-                status_label.config(text="Analysis complete, but results were not saved")
+                status_label.config(text="分析完成，但结果未保存")
         except Exception as e:
             progress_bar.stop()
             progress_bar.pack_forget()
-            status_label.config(text=f"Error: {str(e)}")
-            messagebox.showerror("Processing Error", str(e))
+            status_label.config(text=f"处理出错: {str(e)}")
+            messagebox.showerror("处理错误", str(e))
     
-    select_button = tk.Button(
+    select_file_button = tk.Button(
         button_frame,
-        text="Select PDF File",
+        text="选择单个PDF文件",
         command=select_and_process_pdf,
         width=20,
         height=2,
         bg=secondary_color,
         fg="white",
-        font=("Helvetica", 12, "bold"),
+        font=("Microsoft YaHei", 12, "bold"),
         relief=tk.FLAT,
         cursor="hand2",
-        borderwidth=0
+        bd=0
     )
-    select_button.pack(side=tk.LEFT, padx=10)
-    select_button.bind("<Enter>", on_enter)
-    select_button.bind("<Leave>", on_leave)
+    select_file_button.pack(side=tk.LEFT, padx=10)
+    select_file_button.bind("<Enter>", on_enter_file)
+    select_file_button.bind("<Leave>", on_leave_file)
+    
+    select_folder_button = tk.Button(
+        button_frame,
+        text="选择PDF文件夹",
+        command=select_and_process_folder,
+        width=20,
+        height=2,
+        bg=accent_color,
+        fg="white",
+        font=("Microsoft YaHei", 12, "bold"),
+        relief=tk.FLAT,
+        cursor="hand2",
+        bd=0
+    )
+    select_folder_button.pack(side=tk.LEFT, padx=10)
+    select_folder_button.bind("<Enter>", on_enter_folder)
+    select_folder_button.bind("<Leave>", on_leave_folder)
     
     # Create exit button
     exit_button = tk.Button(
         button_frame,
-        text="Exit",
+        text="退出程序",
         command=root.destroy,
         width=10,
         height=2,
-        bg="#e74c3c",
+        bg="#dc2626",
         fg="white",
-        font=("Helvetica", 12, "bold"),
+        font=("Microsoft YaHei", 12, "bold"),
         relief=tk.FLAT,
         cursor="hand2",
         borderwidth=0
@@ -276,8 +446,8 @@ def gui_mode():
     # Create status label
     status_label = tk.Label(
         status_frame, 
-        text="Ready. Please select a PDF file",
-        font=("Helvetica", 11),
+        text="准备就绪，请选择一个PDF文件",
+        font=("Microsoft YaHei", 11),
         bg=card_bg,
         fg=text_color,
         pady=10

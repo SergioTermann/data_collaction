@@ -11,12 +11,13 @@ class PDFSummarizer:
         """
         self.zhipu_ai = ZhipuAI(api_key)
     
-    def summarize_pdf(self, pdf_path):
+    def summarize_pdf(self, pdf_path, as_questions=True):
         """
         总结PDF文件内容
         
         Args:
             pdf_path: PDF文件路径
+            as_questions: 如果为True，尽可能将内容格式化为问题形式
         
         Returns:
             dict: 包含总结和关键概念的字典
@@ -30,11 +31,11 @@ class PDFSummarizer:
         
         # 总结内容
         print("正在使用智谱AI总结内容...")
-        summary = self.zhipu_ai.summarize_text(text)
+        summary = self.zhipu_ai.summarize_text(text, as_questions=as_questions)
         
         # 提取关键概念
         print("正在提取关键概念...")
-        key_concepts = self.zhipu_ai.extract_key_concepts(text)
+        key_concepts = self.zhipu_ai.extract_key_concepts(text, as_questions=as_questions)
         
         return {
             "summary": summary,
