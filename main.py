@@ -10,7 +10,7 @@ import time
 import datetime
 
 
-def process_pdf(pdf_path, api_key=None, as_questions=True):
+def process_pdf(pdf_path, api_key=None, as_questions=True, custom_instruction=None):
     """
     Process PDF file and return results in knowledge base friendly markdown format
     
@@ -18,6 +18,7 @@ def process_pdf(pdf_path, api_key=None, as_questions=True):
         pdf_path: Path to PDF file
         api_key: API key for ZhipuAI
         as_questions: If True, format summary and concepts as questions when possible
+        custom_instruction: User's custom instructions for processing
     """
     try:
         # Initialize PDF summarizer
@@ -25,7 +26,7 @@ def process_pdf(pdf_path, api_key=None, as_questions=True):
         
         # Summarize PDF content
         print(f"Processing PDF file: {pdf_path}")
-        result = summarizer.summarize_pdf(pdf_path, as_questions=as_questions)
+        result = summarizer.summarize_pdf(pdf_path, as_questions=as_questions, custom_instruction=custom_instruction)
         
         # Get filename without extension for title
         filename = os.path.basename(pdf_path)
@@ -47,7 +48,7 @@ def process_pdf(pdf_path, api_key=None, as_questions=True):
         raise Exception(f"Error processing PDF: {str(e)}")
 
 
-def process_folder(folder_path, api_key=None, as_questions=True, progress_callback=None):
+def process_folder(folder_path, api_key=None, as_questions=True, progress_callback=None, custom_instruction=None):
     """
     处理文件夹中的所有PDF文件，并在同一文件夹中生成同名的Markdown文件
     
@@ -56,6 +57,7 @@ def process_folder(folder_path, api_key=None, as_questions=True, progress_callba
         api_key: ZhipuAI的API密钥
         as_questions: 如果为True，尽可能将摘要和概念格式化为问题
         progress_callback: 进度回调函数，接收当前处理的文件索引和总文件数
+        custom_instruction: 用户自定义处理说明
     """
     processed_files = []
     errors = []
@@ -80,7 +82,7 @@ def process_folder(folder_path, api_key=None, as_questions=True, progress_callba
         pdf_path = os.path.join(folder_path, pdf_file)
         try:
             # 处理PDF文件
-            content = process_pdf(pdf_path, api_key, as_questions)
+            content = process_pdf(pdf_path, api_key, as_questions, custom_instruction)
             
             # 生成输出文件名（与原PDF文件同名，但扩展名为.md）
             base_name = os.path.splitext(pdf_file)[0]
@@ -259,6 +261,45 @@ def gui_mode():
     separator = ttk.Separator(inner_frame, orient='horizontal')
     separator.pack(fill=tk.X, pady=15)
     
+    # 创建用户自定义补充说明框架
+    custom_frame = tk.Frame(inner_frame, bg=card_bg)
+    custom_frame.pack(fill=tk.X, pady=10)
+    
+    # 创建用户自定义补充说明标签
+    custom_label = tk.Label(
+        custom_frame,
+        text="自定义处理说明（可选）：",
+        font=("Microsoft YaHei", 12),
+        bg=card_bg,
+        fg=text_color,
+        anchor="w"
+    )
+    custom_label.pack(fill=tk.X)
+    
+    # 创建用户自定义补充说明文本框
+    custom_instruction = tk.Text(
+        custom_frame,
+        height=4,
+        width=60,
+        font=("Microsoft YaHei", 10),
+        wrap=tk.WORD,
+        bd=1,
+        relief=tk.SOLID
+    )
+    custom_instruction.pack(fill=tk.X, pady=5)
+    
+    # 创建提示标签
+    hint_label = tk.Label(
+        custom_frame,
+        text="提示：您可以在此输入特定的处理要求，如'请重点关注文档中的技术参数'等，这些说明将传递给AI辅助个性化处理",
+        font=("Microsoft YaHei", 9),
+        bg=card_bg,
+        fg="#666666",
+        justify=tk.LEFT,
+        wraplength=550
+    )
+    hint_label.pack(fill=tk.X)
+    
     # Create button frame
     button_frame = tk.Frame(inner_frame, bg=card_bg)
     button_frame.pack(pady=20)
@@ -294,6 +335,9 @@ def gui_mode():
         if not pdf_path:
             return
         
+        # 获取用户自定义说明
+        custom_text = custom_instruction.get("1.0", tk.END).strip()
+        
         # Show processing message
         status_label.config(text="正在处理PDF文件，请稍候...")
         progress_bar.pack(pady=15)
@@ -303,7 +347,7 @@ def gui_mode():
         try:
             # Process PDF file
             api_key = os.getenv("ZHIPUAI_API_KEY")
-            content = process_pdf(pdf_path, api_key, as_questions=True)
+            content = process_pdf(pdf_path, api_key, as_questions=True, custom_instruction=custom_text if custom_text else None)
             
             # Save to markdown file
             output_path = save_to_markdown(content, pdf_path)
@@ -334,6 +378,9 @@ def gui_mode():
         if not folder_path:
             return
         
+        # 获取用户自定义说明
+        custom_text = custom_instruction.get("1.0", tk.END).strip()
+        
         # 显示处理消息
         status_label.config(text="正在处理文件夹中的PDF文件，请稍候...")
         progress_bar.pack(pady=15)
@@ -353,7 +400,9 @@ def gui_mode():
         try:
             # 处理文件夹
             api_key = os.getenv("ZHIPUAI_API_KEY")
-            result = process_folder(folder_path, api_key, as_questions=True, progress_callback=update_progress)
+            result = process_folder(folder_path, api_key, as_questions=True, 
+                                   progress_callback=update_progress,
+                                   custom_instruction=custom_text if custom_text else None)
             
             # 停止进度条
             progress_bar.config(value=100)

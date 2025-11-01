@@ -21,7 +21,7 @@ class ZhipuAI:
         # 初始化客户端
         self.client = zhipuai.ZhipuAI(api_key=self.api_key)
     
-    def summarize_text(self, text, max_tokens=2000, as_questions=True):
+    def summarize_text(self, text, max_tokens=2000, as_questions=True, custom_instruction=None):
         """
         使用智谱AI总结文本
         
@@ -29,6 +29,7 @@ class ZhipuAI:
             text: 要总结的文本
             max_tokens: 响应的最大令牌数
             as_questions: 如果为True，尽可能将内容格式化为问题形式
+            custom_instruction: 用户自定义处理说明
             
         返回:
             文本的总结
@@ -42,9 +43,15 @@ class ZhipuAI:
             system_prompt = "你是一位专业的文档分析助手，擅长从文档中提取和总结关键知识点。请只使用中文回答。直接给出内容，不要添加任何前缀如'好的'、'这是'等。"
             
             if as_questions:
-                user_prompt = f"请总结以下文档内容。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的内容，请使用正常的描述性格式。将所有内容组织成结构清晰的总结，并分为明确的部分。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
+                user_prompt = f"请总结以下文档内容。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的内容，请使用正常的描述性格式。将所有内容组织成结构清晰的总结，并分为明确的部分。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等"
             else:
-                user_prompt = f"请总结以下文档内容，提取关键点，并将它们组织成结构化的总结。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
+                user_prompt = f"请总结以下文档内容，提取关键点，并将它们组织成结构化的总结。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等"
+                
+            # 添加用户自定义说明
+            if custom_instruction:
+                user_prompt += f"。用户补充说明：{custom_instruction}"
+                
+            user_prompt += f"：\n\n{text}"
             
             response = self.client.chat.completions.create(
                 model="glm-4.6",
@@ -72,7 +79,7 @@ class ZhipuAI:
             print(f"总结文本时出错: {e}")
             return f"错误: {str(e)}"
     
-    def extract_key_concepts(self, text, max_tokens=2000, as_questions=True):
+    def extract_key_concepts(self, text, max_tokens=2000, as_questions=True, custom_instruction=None):
         """
         从文本中提取关键概念
         
@@ -80,6 +87,7 @@ class ZhipuAI:
             text: 要提取关键概念的文本
             max_tokens: 响应的最大令牌数
             as_questions: 如果为True，尽可能将概念格式化为问题形式
+            custom_instruction: 用户自定义处理说明
             
         返回:
             从文本中提取的关键概念
@@ -93,9 +101,15 @@ class ZhipuAI:
             system_prompt = "你是一位专业的知识提取助手，擅长从文本中提取关键概念和术语。请只使用中文回答。直接给出内容，不要添加任何前缀如'好的'、'这是'等。"
             
             if as_questions:
-                user_prompt = f"请从以下文档中提取10-15个关键概念或术语。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的概念，请使用正常的描述性格式。为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
+                user_prompt = f"请从以下文档中提取10-15个关键概念或术语。对于可以表述为问题的概念，请以问题形式呈现。对于无法自然地表述为问题的概念，请使用正常的描述性格式。为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等"
             else:
-                user_prompt = f"请从以下文档中提取10-15个关键概念或术语，并为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等：\n\n{text}"
+                user_prompt = f"请从以下文档中提取10-15个关键概念或术语，并为每个概念提供简要解释。请确保所有输出都是中文，不要使用任何英文。直接给出内容，不要添加任何前缀如'好的'、'这是'等"
+            
+            # 添加用户自定义说明
+            if custom_instruction:
+                user_prompt += f"。用户补充说明：{custom_instruction}"
+                
+            user_prompt += f"：\n\n{text}"
             
             response = self.client.chat.completions.create(
                 model="glm-4.6",
